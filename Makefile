@@ -1,5 +1,5 @@
 run:
-	uv run main.py
+	uv run src/p_median_zebra/main.py
 
 typecheck:
 	uv tool run mypy --ignore-missing-imports --follow-imports=skip --strict-optional . 
