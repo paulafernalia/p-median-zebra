@@ -19,7 +19,7 @@ git clone https://github.com/paulafernalia/p-median-zebra.git
 cd p-median-zebra
 
 # Install as an editable package (required to run examples)
-pip install -e .
+uv pip install -e .
 ```
 
 ## Usage
