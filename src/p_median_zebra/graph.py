@@ -1,4 +1,4 @@
-import config
+from p_median_zebra import config
 import random
 from scipy.spatial.distance import cityblock
 from itertools import combinations

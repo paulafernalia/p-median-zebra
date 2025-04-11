@@ -6,3 +6,6 @@ typecheck:
 
 autoformat:
 	uv tool run black .
+
+example:
+	uv run marimo edit notebooks/example.py

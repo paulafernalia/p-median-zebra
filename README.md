@@ -26,3 +26,14 @@ make autoformat
 To execute typechecking run
 ```
 make typecheck
+```
+
+To open the example in `notebooks/`, first install `p_median_zebra` as an editable package:
+```
+uv pip install -e .
+```
+
+and then run
+```
+make example
+```
