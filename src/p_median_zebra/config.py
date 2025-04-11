@@ -17,6 +17,7 @@ from pydantic import (
     ValidationInfo,
     ConfigDict,
 )
+from typing import Type
 
 
 class ModelParameters(BaseModel):
@@ -50,7 +51,7 @@ class ModelParameters(BaseModel):
 
     # Optimization parameters
     OPT_TIME_LIMIT: float = Field(100.0, gt=0, description="Time limit (must be > 1.)")
-    VERBOSE: conint(strict=True, ge=0, le=1) = Field(1, description="Must be 0 or 1")
+    VERBOSE: Type[int] = conint(strict=True, ge=0, le=1)
 
     model_config = ConfigDict(extra="forbid")
 
