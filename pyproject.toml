@@ -1,0 +1,21 @@
+[project]
+name = "p-median-zebra"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "paulafernalia", email = "paula.fermin.cueto@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "networkx>=3.4.2",
+    "pydantic>=2.11.3",
+    "scipy>=1.15.2",
+]
+
+[project.scripts]
+p-median-zebra = "p_median_zebra:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
