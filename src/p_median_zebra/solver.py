@@ -1,7 +1,7 @@
 import highspy
 import numpy as np
-import graph
-import config
+from p_median_zebra import graph
+from p_median_zebra import config
 import networkx as nx
 from typing import Dict, List
 
@@ -16,18 +16,18 @@ def compute_sorted_dist(G: nx.Graph) -> Dict[int, np.ndarray]:
     Returns:
         dict: A dictionary mapping each node to a sorted array of unique distances.
     """
+    n = len(G.nodes)
 
-    dists = np.zeros((nnodes, nnodes))
+    dists = np.zeros((n, n))
     for i, j, d in G.edges(data="d"):
         dists[i, j] = d
         dists[j, i] = d
 
     return {i: np.unique(dists[i, :]) for i in G.nodes}
 
+
 def add_z_variables(
-    h: highspy.Highs,
-    G: nx.Graph,
-    dsorted: Dict[int, np.ndarray]
+    h: highspy.Highs, G: nx.Graph, dsorted: Dict[int, np.ndarray]
 ) -> Dict[int, List[int]]:
     """
     Add continuous z variables to the HiGHS model.
@@ -44,9 +44,9 @@ def add_z_variables(
     """
 
     # Generate variable names like "z0.0", "x0.1", ..., "zn.k"
-    var_names = [
-        f"z{i}.{j}" for i in range(nnodes) for j in range(nnodes)
-    ]
+    n = len(G.nodes)
+
+    var_names = [f"z{i}.{j}" for i in range(n) for j in range(n)]
 
     # Create z variables
     return {
@@ -58,10 +58,8 @@ def add_z_variables(
         for i, ds in dsorted.items()
     }
 
-def add_y_variables(
-    h: highspy.Highs,
-    G: nx.Graph
-) -> List[int]:
+
+def add_y_variables(h: highspy.Highs, G: nx.Graph) -> List[int]:
     """
     Add binary y variables to the HiGHS model to indicate whether a node is chosen as a depot.
 
@@ -72,14 +70,11 @@ def add_y_variables(
     Returns:
         list: A list of binary variables y[i] for each node i.
     """
-    return h.addBinaries(nnodes, name=[f"y{i}" for i in G.nodes])
+    return h.addBinaries(len(G.nodes), name=[f"y{i}" for i in G.nodes])
 
 
 def add_p_median_constraint(
-    h: highspy.Highs,
-    G: nx.Graph,
-    p: int,
-    y: List[int]
+    h: highspy.Highs, G: nx.Graph, p: int, y: List[int]
 ) -> None:
     """
     Add a constraint ensuring exactly p depots are selected.
@@ -91,14 +86,14 @@ def add_p_median_constraint(
         y (list): Binary depot indicator variables.
     """
     h.addConstrs(h.qsum(y[i] for i in G.nodes) == p)
-    
+
 
 def add_z_y_def_constraints(
     h: highspy.Highs,
     G: nx.Graph,
     dsorted: Dict[int, np.ndarray],
     y: List[int],
-    z: Dict[int, List[int]]
+    z: Dict[int, List[int]],
 ) -> None:
     """
     Adds constraints linking z and y variables to ensure each node is assigned to a nearby depot.
@@ -110,10 +105,11 @@ def add_z_y_def_constraints(
         y (list): List of binary variables indicating depot selection.
         z (dict): Dictionary of z variables grouped by node.
     """
+
     def get_dist(i, j):
         if i == j:
             return 0
-        return G.get_edge_data(i, j)['d']
+        return G.get_edge_data(i, j)["d"]
 
     for i in G.nodes:
         h.addConstrs(
@@ -122,10 +118,7 @@ def add_z_y_def_constraints(
         )
 
 
-def get_optimal_depots(
-    h: highspy.Highs,
-    y: List[int]
-) -> List[int]:
+def get_optimal_depots(h: highspy.Highs, y: List[int]) -> List[int]:
     """
     Retrieves the indices of nodes chosen as depots in the solution.
 
@@ -170,18 +163,3 @@ def solve_p_median(G: nx.Graph, p: int):
     depots = get_optimal_depots(h, y)
 
     return depots
-
-
-nnodes = 100
-mapsize = 100
-ndepots = 5
-
-# Create graph
-G = graph.create_graph(nnodes, mapsize)
-
-# Solve problem and get optimal list of depots
-depots = solve_p_median(G, ndepots)
-
-# Plot solution
-allocation = graph.get_allocation_dict(depots, G)
-graph.plot_solution(G, allocation)
