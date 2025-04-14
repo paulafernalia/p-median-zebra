@@ -9,3 +9,6 @@ autoformat:
 
 example:
 	uv run marimo edit notebooks/example.py
+
+pytest:
+	uv run pytest --verbose

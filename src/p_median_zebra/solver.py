@@ -1,7 +1,7 @@
 import highspy
 import numpy as np
-import graph
-import config
+from p_median_zebra import graph
+from p_median_zebra import config
 import networkx as nx
 from typing import Dict, List
 
@@ -16,8 +16,9 @@ def compute_sorted_dist(G: nx.Graph) -> Dict[int, np.ndarray]:
     Returns:
         dict: A dictionary mapping each node to a sorted array of unique distances.
     """
+    n = len(G.nodes)
 
-    dists = np.zeros((nnodes, nnodes))
+    dists = np.zeros((n, n))
     for i, j, d in G.edges(data="d"):
         dists[i, j] = d
         dists[j, i] = d
@@ -44,8 +45,10 @@ def add_z_variables(
     """
 
     # Generate variable names like "z0.0", "x0.1", ..., "zn.k"
+    n = len(G.nodes)
+
     var_names = [
-        f"z{i}.{j}" for i in range(nnodes) for j in range(nnodes)
+        f"z{i}.{j}" for i in range(n) for j in range(n)
     ]
 
     # Create z variables
@@ -72,7 +75,7 @@ def add_y_variables(
     Returns:
         list: A list of binary variables y[i] for each node i.
     """
-    return h.addBinaries(nnodes, name=[f"y{i}" for i in G.nodes])
+    return h.addBinaries(len(G.nodes), name=[f"y{i}" for i in G.nodes])
 
 
 def add_p_median_constraint(
@@ -170,18 +173,3 @@ def solve_p_median(G: nx.Graph, p: int):
     depots = get_optimal_depots(h, y)
 
     return depots
-
-
-nnodes = 100
-mapsize = 100
-ndepots = 5
-
-# Create graph
-G = graph.create_graph(nnodes, mapsize)
-
-# Solve problem and get optimal list of depots
-depots = solve_p_median(G, ndepots)
-
-# Plot solution
-allocation = graph.get_allocation_dict(depots, G)
-graph.plot_solution(G, allocation)

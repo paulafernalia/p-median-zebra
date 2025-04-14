@@ -5,6 +5,18 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from typing import Dict, List, Tuple
 
+
+def generate_all_edges(G: nx.Graph) -> None:
+    # Calculate Manhattan distances between node pairs
+    distances = {
+        (i, j): int(cityblock(G.nodes[i]['pos'], G.nodes[j]['pos'])) for i, j in combinations(G.nodes, 2)
+    }
+
+    # Add edges with distances
+    for (i, j), dist in distances.items():
+        G.add_edge(i, j, d=dist)
+
+
 def create_graph(nnodes: int, mapsize: int, seed: int = 42) -> nx.Graph:
     """
     Generates a random 2D network graph with nodes, edges, and Manhattan distance weights.
@@ -33,20 +45,13 @@ def create_graph(nnodes: int, mapsize: int, seed: int = 42) -> nx.Graph:
     # Generate random coordinates for each node
     coords = [(random.randint(0, mapsize), random.randint(0, mapsize)) for _ in nodes]
 
-    # Calculate Manhattan distances between node pairs
-    distances = {
-        (i, j): int(cityblock(coords[i], coords[j])) for i, j in combinations(nodes, 2)
-    }
-
     G: nx.Graph = nx.Graph()
 
     # Add nodes with attributes
     for i in nodes:
         G.add_node(i, pos=coords[i])
 
-    # Add edges with distances
-    for (i, j), dist in distances.items():
-        G.add_edge(i, j, d=dist)
+    generate_all_edges(G)
 
     return G
 
