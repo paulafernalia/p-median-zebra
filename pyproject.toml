@@ -1,10 +1,10 @@
 [project]
 name = "p-median-zebra"
 version = "0.1.0"
-description = "Add your description here"
+description = "Solving the p-median problem with Zebra"
 readme = "README.md"
 authors = [
-    { name = "paulafernalia", email = "paula.fermin.cueto@gmail.com" }
+    { name = "paulafernalia", email = "xxxx@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
