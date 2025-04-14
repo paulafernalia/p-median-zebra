@@ -1,9 +1,13 @@
-import highspy
+import time
+from typing import Dict, List
+from collections import defaultdict
+
 import numpy as np
+import networkx as nx
+import highspy
+
 from p_median_zebra import graph
 from p_median_zebra import config
-import networkx as nx
-from typing import Dict, List
 
 
 def compute_sorted_dist(G: nx.Graph) -> Dict[int, np.ndarray]:
@@ -27,7 +31,7 @@ def compute_sorted_dist(G: nx.Graph) -> Dict[int, np.ndarray]:
 
 
 def add_z_variables(
-    h: highspy.Highs, G: nx.Graph, dsorted: Dict[int, np.ndarray]
+    h: highspy.Highs, G: nx.Graph, dsorted: Dict[int, np.ndarray], maxk: int
 ) -> Dict[int, List[int]]:
     """
     Add continuous z variables to the HiGHS model.
@@ -42,21 +46,27 @@ def add_z_variables(
     Returns:
         dict: A nested dictionary of z variables for each node and distance index.
     """
-
     # Generate variable names like "z0.0", "x0.1", ..., "zn.k"
     n = len(G.nodes)
 
-    var_names = [f"z{i}.{j}" for i in range(n) for j in range(n)]
+    if maxk >= len(G.nodes) or maxk < 0:
+        raise ValueError("maxk must be in [0, G.nodes)")
 
     # Create z variables
-    return {
-        i: h.addVariables(
-            len(ds),
-            obj=np.diff(np.insert(ds, 0, 0)).tolist(),
-            name=[f"z{i}.{k}" for k in range(len(ds))],
-        )
-        for i, ds in dsorted.items()
-    }
+    z = defaultdict(lambda: defaultdict(object))
+    for i, ds in dsorted.items():
+        numz = min(maxk + 1, len(ds))
+        deltas = np.diff(np.insert(ds, 0, 0))[:numz].tolist()
+
+        for k in range(1, numz):
+            z[i][k] = h.addVariable(
+                lb=0,
+                ub=1,
+                obj=deltas[k],
+                name=f"z{i}.{k}",
+            )
+
+    return z
 
 
 def add_y_variables(h: highspy.Highs, G: nx.Graph) -> List[int]:
@@ -88,12 +98,19 @@ def add_p_median_constraint(
     h.addConstrs(h.qsum(y[i] for i in G.nodes) == p)
 
 
+def get_dist(G: nx.Graph, i: int, j: int) -> int:
+    if i == j:
+        return 0
+    return G.get_edge_data(i, j)["d"]
+
+
 def add_z_y_def_constraints(
     h: highspy.Highs,
     G: nx.Graph,
     dsorted: Dict[int, np.ndarray],
     y: List[int],
     z: Dict[int, List[int]],
+    maxk: int,
 ) -> None:
     """
     Adds constraints linking z and y variables to ensure each node is assigned to a nearby depot.
@@ -105,17 +122,26 @@ def add_z_y_def_constraints(
         y (list): List of binary variables indicating depot selection.
         z (dict): Dictionary of z variables grouped by node.
     """
-
-    def get_dist(i, j):
-        if i == j:
-            return 0
-        return G.get_edge_data(i, j)["d"]
+    if maxk >= len(G.nodes) or maxk < 0:
+        raise ValueError("maxk must be in [0, G.nodes)")
 
     for i in G.nodes:
+        last = min(maxk + 1, len(dsorted[i]))
         h.addConstrs(
-            z[i][k] + h.qsum(y[j] for j in G.nodes if get_dist(i, j) < d) >= 1
-            for k, d in enumerate(dsorted[i][1:], start=1)
+            create_z_y_def_linexpr(h, G, y, z, i, k, d) >= 1
+            for k, d in enumerate(dsorted[i][1:last], start=1)
         )
+
+def create_z_y_def_linexpr(
+    h: highspy.Highs,
+    G: nx.Graph,
+    y: List[int],
+    z: Dict[int, List[int]],
+    i: int,
+    k: int,
+    dik: int,
+) -> None:
+    return z[i][k] + h.qsum(y[j] for j in G.nodes if get_dist(G, i, j) < dik)
 
 
 def get_optimal_depots(h: highspy.Highs, y: List[int]) -> List[int]:
@@ -132,7 +158,28 @@ def get_optimal_depots(h: highspy.Highs, y: List[int]) -> List[int]:
     return [i for i, y in enumerate(h.vals(y)) if y > 1e-2]
 
 
-def solve_p_median(G: nx.Graph, p: int):
+def create_p_median_model(
+    h: highspy.Highs,
+    G: nx.Graph,
+    dsorted: Dict[int, np.ndarray],
+    p: int,
+    maxk: int = -1,
+):
+    if maxk >= len(G.nodes) or maxk < 0:
+        raise ValueError("maxk must be in [0, G.nodes)")
+
+    # Create model variables
+    z = add_z_variables(h, G, dsorted, maxk)
+    y = add_y_variables(h, G)
+
+    # Create constraints
+    add_p_median_constraint(h, G, p, y)
+    add_z_y_def_constraints(h, G, dsorted, y, z, maxk)
+
+    return y, z
+
+
+def solve_p_median_mip(G: nx.Graph, p: int) -> List[int]:
     """
     Solves the p-median problem on the given graph using the HiGHS solver.
 
@@ -143,23 +190,111 @@ def solve_p_median(G: nx.Graph, p: int):
     Returns:
         list: Indices of nodes selected as depots in the optimal solution.
     """
+    start = time.time()
+
     h = highspy.Highs()
+    h.silent()
 
     # Create vector of Dik
     dsorted = compute_sorted_dist(G)
 
-    # Create model variables
-    z = add_z_variables(h, G, dsorted)
-    y = add_y_variables(h, G)
-
-    # Create constraints
-    add_p_median_constraint(h, G, p, y)
-    add_z_y_def_constraints(h, G, dsorted, y, z)
+    y, z = create_p_median_model(h, G, dsorted, p, len(G.nodes) - 1)
 
     # Optimise
     h.run()
 
     # Get depots in solution
     depots = get_optimal_depots(h, y)
+
+    print(f"Problem solved in {time.time() - start:.2f} seconds")
+
+    return depots
+
+
+def solve_p_median_zebra(G: nx.Graph, p: int, maxk: int = -1) -> List[int]:
+    """
+    Solves the p-median problem on the given graph using the zebra algorithm.
+
+    Parameters:
+        G (nx.Graph): The input graph with edge attribute 'd' for distances.
+        p (int): The number of depots to be selected.
+
+    Returns:
+        list: Indices of nodes selected as depots in the optimal solution.
+    """
+    start = time.time()
+
+    if maxk == -1:
+        maxk = len(G.nodes) - 1
+
+    if maxk >= len(G.nodes):
+        raise ValueError("maxk must be <= G.nodes")
+
+    # Initialise highs model
+    h = highspy.Highs()
+    h.silent()
+
+    # Create vector of Dik
+    dsorted = compute_sorted_dist(G)
+
+    # Create model
+    y, z = create_p_median_model(h, G, dsorted, p, maxk)
+
+    # Relax y variables
+    for var in y:
+        h.setContinuous(var)
+
+    # Initialise dictionary with largest k per node
+    kdict = {i: maxk for i in G.nodes}
+
+    for iter_ in range(100):
+        # Optimise
+        h.run()
+
+        # Get nodes that need new variables and constraints
+        newk = [i for i in G.nodes if h.vals(z[i][kdict[i]]) > 1e-6]
+
+        if len(newk) == 0:
+            break
+
+        for i in newk:
+            k = kdict[i] + 1
+
+            assert k < len(dsorted[i])
+
+            z[i][k] = h.addVariable(
+                lb=0,
+                ub=1,
+                obj=dsorted[i][k] - dsorted[i][k - 1],
+                name=f"z{i}.{k}",
+            )
+
+            kdict[i] += 1
+
+        # Add constraints
+        h.addConstrs(
+            create_z_y_def_linexpr(h, G, y, z, i, kdict[i], dsorted[i][kdict[i]]) >= 1
+            for i in newk
+        )
+
+    print(f"{iter_} iterations required to solve the LP")
+
+    # Add constraints
+    h.addConstrs(
+        create_z_y_def_linexpr(h, G, y, z, i, kdict[i] + 1, dsorted[i][kdict[i]] + 1) >= 1
+        for i in newk
+    )
+
+    # Relax y variables
+    for var in y:
+        h.setInteger(var)
+
+    # Optimise
+    h.run()
+
+    # Get depots in solution
+    depots = get_optimal_depots(h, y)
+
+    print(f"Problem solved in {time.time() - start:.2f} seconds")
 
     return depots

@@ -38,7 +38,7 @@ test_cases = [
 
 
 @pytest.mark.parametrize("case", test_cases, ids=[case["name"] for case in test_cases])
-def test_p_median(case):
+def test_p_median_mip(case):
     G = nx.Graph()
 
     for node_id, pos in case["nodes"].items():
@@ -46,6 +46,6 @@ def test_p_median(case):
 
     graph.generate_all_edges(G)
 
-    depots = solver.solve_p_median(G, case["p"])
+    depots = solver.solve_p_median_mip(G, case["p"])
 
     assert depots == case["expected_depots"]
