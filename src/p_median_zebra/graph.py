@@ -9,7 +9,8 @@ from typing import Dict, List, Tuple
 def generate_all_edges(G: nx.Graph) -> None:
     # Calculate Manhattan distances between node pairs
     distances = {
-        (i, j): int(cityblock(G.nodes[i]['pos'], G.nodes[j]['pos'])) for i, j in combinations(G.nodes, 2)
+        (i, j): int(cityblock(G.nodes[i]["pos"], G.nodes[j]["pos"]))
+        for i, j in combinations(G.nodes, 2)
     }
 
     # Add edges with distances
@@ -68,17 +69,16 @@ def get_allocation_dict(depots: List[int], G: nx.Graph) -> Dict[int, int]:
     - Dict[int, int]: A dictionary mapping each node to the depot it is allocated to.
                       If a node is a depot, it maps to itself.
     """
-    def closest_depot(depots: List[int], i: int) -> int:
-        return min(depots, key=lambda j: G.get_edge_data(i, j)['d'])
 
-    return {
-        i: i if i in depots else closest_depot(depots, i)
-        for i in G.nodes
-    }
+    def closest_depot(depots: List[int], i: int) -> int:
+        return min(depots, key=lambda j: G.get_edge_data(i, j)["d"])
+
+    return {i: i if i in depots else closest_depot(depots, i) for i in G.nodes}
+
 
 def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
     """
-    Visualizes the allocation of nodes to depots by drawing the graph with edges from 
+    Visualizes the allocation of nodes to depots by drawing the graph with edges from
     each node to its assigned depot in a unique color per depot.
 
     Parameters:
@@ -88,7 +88,7 @@ def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
     Returns:
     - None
     """
-    pos = nx.get_node_attributes(G, 'pos')
+    pos = nx.get_node_attributes(G, "pos")
 
     # Draw all nodes
     nx.draw_networkx_nodes(G, pos, node_size=10)
@@ -108,10 +108,10 @@ def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
 
     # Draw edges connecting each node to its depot
     for depot, edges in edges_by_depot.items():
-        nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color=[colors[depot]], width=2)
+        nx.draw_networkx_edges(
+            G, pos, edgelist=edges, edge_color=[colors[depot]], width=2
+        )
 
     plt.title("Allocation")
     plt.axis("off")
     plt.show()
-
-
