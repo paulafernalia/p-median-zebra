@@ -115,3 +115,19 @@ def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
     plt.title("Allocation")
     plt.axis("off")
     plt.show()
+
+
+def compute_total_distance(depots: List[int], G: nx.Graph) -> int:
+    # Get assignment of nodes to depots
+    allocation = get_allocation_dict(depots, G)
+
+    total_distance = 0
+    for i in allocation:
+        if i in depots:
+            continue
+
+        total_distance += G.get_edge_data(i, allocation[i])["d"]
+
+    return total_distance
+
+
