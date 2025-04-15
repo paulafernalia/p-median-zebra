@@ -21,12 +21,6 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""## Solving p-median problem as a MIP""")
-    return
-
-
 @app.cell
 def _():
     import sys
@@ -42,26 +36,45 @@ def _():
     return config, graph, importlib, mo, os, solver, sys
 
 
+@app.cell(hide_code=True)
+def _():
+    ### Create random instance
+    return
+
+
 @app.cell
-def _(config, graph, solver):
+def _(config, graph):
     # Create an instance with 100 random nodes spread randomly and 5 depots to be allocated (p = 5)
-    pars = config.ModelParameters(MAPSIZE=500, NDEPOTS=5, NNODES=100)
+    pars = config.ModelParameters(MAPSIZE=500, NDEPOTS=5, NNODES=150)
 
     # Create NetworkX graph
     G = graph.create_graph(pars.NNODES, pars.MAPSIZE)
+    return G, pars
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""## Solving p-median problem as a MIP""")
+    return
+
+
+@app.cell
+def _(G, graph, pars, solver):
     # Solve p-median problem as a MIP using a radius formulation and get optimal list of depots
     depots_mip = solver.solve_p_median_mip(G, pars.NDEPOTS)
 
     # Plot solution
     allocation_mip = graph.get_allocation_dict(depots_mip, G)
     graph.plot_solution(G, allocation_mip)
-    return G, allocation_mip, depots_mip, pars
+
+    cost_mip = graph.compute_total_distance(depots_mip, G)
+    print(f"Allocation cost (total distance) = {cost_mip}")
+    return allocation_mip, cost_mip, depots_mip
 
 
 @app.cell(hide_code=True)
-def _():
-    ## Solve using Zebra
+def _(mo):
+    mo.md("""## Solve using Zebra""")
     return
 
 
@@ -73,7 +86,10 @@ def _(G, graph, pars, solver):
     # Plot solution
     allocation_zebra = graph.get_allocation_dict(depots_zebra, G)
     graph.plot_solution(G, allocation_zebra)
-    return allocation_zebra, depots_zebra
+
+    cost_zebra = graph.compute_total_distance(depots_zebra, G)
+    print(f"Allocation cost (total distance) = {cost_zebra}")
+    return allocation_zebra, cost_zebra, depots_zebra
 
 
 if __name__ == "__main__":

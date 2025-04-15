@@ -70,10 +70,10 @@ def get_allocation_dict(depots: List[int], G: nx.Graph) -> Dict[int, int]:
                       If a node is a depot, it maps to itself.
     """
 
-    def closest_depot(depots: List[int], i: int) -> int:
+    def closest_depot(G: nx.Graph, depots: List[int], i: int) -> int:
         return min(depots, key=lambda j: G.get_edge_data(i, j)["d"])
 
-    return {i: i if i in depots else closest_depot(depots, i) for i in G.nodes}
+    return {i: i if i in depots else closest_depot(G, depots, i) for i in G.nodes}
 
 
 def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
@@ -115,3 +115,19 @@ def plot_solution(G: nx.Graph, allocation: Dict[int, int]) -> None:
     plt.title("Allocation")
     plt.axis("off")
     plt.show()
+
+
+def compute_total_distance(depots: List[int], G: nx.Graph) -> int:
+    # Get assignment of nodes to depots
+    allocation = get_allocation_dict(depots, G)
+
+    total_distance = 0
+    for i in allocation:
+        if i in depots:
+            continue
+
+        total_distance += G.get_edge_data(i, allocation[i])["d"]
+
+    return total_distance
+
+
